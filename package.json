@@ -1,0 +1,10 @@
+{
+  "name": "tornado-exit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Relayer-free Tornado Cash withdrawals on the ERC-8421 alternative mempool (EIP-8141 frame transactions)",
+  "license": "MIT",
+  "scripts": {
+    "check:devnet": "yarn --cwd client --silent check:devnet"
+  }
+}

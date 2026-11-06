@@ -1,0 +1,16 @@
+# secrets and notes
+.env
+.env.*
+notes/
+# planning doc (kept local only)
+BUILD-PLAN.md
+FINAL-IDEA.md
+RESEARCH.md
+# build artifacts
+node_modules/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+dist/
+*.log
+.DS_Store
