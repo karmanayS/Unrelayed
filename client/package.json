@@ -16,7 +16,9 @@
     "prove": "tsx src/commands/prove.ts",
     "test:s2": "tsx src/tests/s2.ts",
     "test:s2:framegas": "tsx src/tests/s2FrameGas.ts",
-    "test:s3": "tsx src/tests/s3.ts"
+    "test:s3": "tsx src/tests/s3.ts",
+    "check:bytecode": "tsx src/checkBytecode.ts",
+    "test:s4": "tsx src/tests/s4.ts"
   },
   "dependencies": {
     "@forshtat/hegota-support": "0.0.1",

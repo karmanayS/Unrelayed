@@ -67,6 +67,7 @@ contract Probe is HegotaSupport(Devnet.ERC8421_WORKSHOP) {
     function vTxParams(uint256[] calldata ids, uint256[] calldata expected) external {
         require(ids.length == expected.length, "length");
         for (uint256 i = 0; i < ids.length; i++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             require(txparam(TxParam(ids[i])) == expected[i], string(abi.encodePacked("txparam mismatch #", bytes1(uint8(48 + i)))));
         }
         approve(Scope.EXECUTION_AND_PAYMENT);
@@ -76,6 +77,7 @@ contract Probe is HegotaSupport(Devnet.ERC8421_WORKSHOP) {
     function vFrameParams(uint256 frameIndex, uint256[] calldata ids, uint256[] calldata expected) external {
         require(ids.length == expected.length, "length");
         for (uint256 i = 0; i < ids.length; i++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             require(frameparam(frameIndex, FrameParam(ids[i])) == expected[i], string(abi.encodePacked("frameparam mismatch #", bytes1(uint8(48 + i)))));
         }
         approve(Scope.EXECUTION_AND_PAYMENT);

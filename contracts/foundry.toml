@@ -8,6 +8,9 @@ via_ir = true
 optimizer = true
 optimizer_runs = 200
 evm_version = "cancun"
+# no CBOR metadata, so check:bytecode can disassemble the whole runtime code
+bytecode_hash = "none"
+cbor_metadata = false
 # @forshtat/hegota-support (Solidity sources) is an npm dependency of this folder
 remappings = ["@forshtat/hegota-support/=node_modules/@forshtat/hegota-support/"]
 allow_paths = ["node_modules"]

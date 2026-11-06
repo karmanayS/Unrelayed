@@ -308,3 +308,70 @@ Options I see (do NOT pick one):
 Impact on schedule: A ≈ 15 min (contract + test text), B/C ≈ 45 min. S4 (pre-approved, independent of this) can
 proceed meanwhile if you allow; S5 depends on the answer.
 Waiting for owner decision.
+
+**ESCALATION 2 — owner decision (18:50 IST): option A.** C6 is dropped from VERIFY (only `recipient != address(0)`
+stays); the client checks `eth_getCode(recipient) == 0x` for honest users; the residual risk (≤ one failed tx per
+note, bounded by C7) is documented. T5.2(l) becomes: reverting contract recipient admitted, frame 1 reverts,
+TornadoExit loss ≤ one tx's gas, keyed nonce consumed, a second attempt with the same note rejected.
+Owner also approved starting S4 in parallel. **S3 exit criteria: all outcomes resolved.**
+
+## S4. Embedded Groth16 verifier — PASSED (18:50 → 19:02 IST)
+
+`contracts/src/Groth16TornadoVerifier.sol`: VK copied from the tornado-core **v2.0** release `Verifier.sol` (the key
+the deployed Verifier embeds; tornado-core's repo `contracts/Verifier.sol` is the v2.1 key, see ESCALATION 1).
+Same `abi.decode(proof, (uint[2],uint[2],uint[2],uint[2]))` parsing, same `< SNARK_SCALAR_FIELD` input check, same
+negate/pairing equation; precompiles 0x06/0x07/0x08 via `staticcall(gas(), …)`; `revert` instead of `invalid()`.
+Compiled without CBOR metadata so the whole runtime is disassemblable. Runner: `yarn --cwd client test:s4`;
+bytecode check: `yarn check:bytecode`.
+- deployed standalone at `0x01163fc3ee187d4ff4234b47ff08d0238b5c6fd1`, tx `0xd01b14f300cf4d1a44419f461efef7c32e9abfc7e39e76b4db92a748a1f77b4c`
+  (a first deploy with a 3M gas limit ran out of gas — code-deposit state gas; deploys now use 12M.)
+
+T4.1 constants (ours, in source order → PUSH32 index in the deployed Verifier): 28/28 found, in order, #2…#29
+(alfa1 `0x1f22bad3…7dd8`, `0x0a67b45c…7920`; beta2 `0x23dbd76e…6869`, `0x18d1f633…de90`, `0x13268af2…435b`,
+`0x0d232b2c…7299`; gamma2 `0x0c70a43b…11bc`, `0x13f0c8a9…e0a6`, `0x2ea20a85…fd46`, `0x1524408f…9b1f`; delta2
+`0x23246125…add0`, `0x11d5a4cf…8ae4`, `0x049fc110…3a5`, `0x2347a55e…d133`; IC0–IC6 `0x1f3340ed…cf28` …
+`0x02d6ea8f…3506`; full list printed by the runner).
+```
+== T4.1 verifying key constants vs the deployed Verifier
+PASS  our contract has 28 VK constants (alfa1 2 + beta2 4 + gamma2 4 + delta2 4 + IC 7x2): 28
+PASS  every VK constant is a PUSH32 operand of the deployed Verifier
+PASS  in the same order
+PASS  every VK constant is also in our compiled runtime code
+deployed Groth16TornadoVerifier 0x01163fc3ee187d4ff4234b47ff08d0238b5c6fd1 tx 0xd01b14f300cf4d1a44419f461efef7c32e9abfc7e39e76b4db92a748a1f77b4c
+== T4.2 equivalence with the deployed Verifier (eth_call), 3 real proofs x (1 + 7 mutations)
+PASS  proof 0 valid: deployed=true ours=true
+PASS  proof 0 root+1: deployed=false ours=false
+PASS  proof 0 nullifierHash+1: deployed=false ours=false
+PASS  proof 0 recipient+1: deployed=false ours=false
+PASS  proof 0 relayer+1: deployed=false ours=false
+PASS  proof 0 fee+1: deployed=false ours=false
+PASS  proof 0 refund+1: deployed=false ours=false
+PASS  proof 0 proof byte 100 flipped: deployed=revert ours=revert
+INFO  eth_estimateGas verifyProof: deployed 266792, ours 258149
+PASS  proof 1 valid: deployed=true ours=true
+PASS  proof 1 root+1: deployed=false ours=false
+PASS  proof 1 nullifierHash+1: deployed=false ours=false
+PASS  proof 1 recipient+1: deployed=false ours=false
+PASS  proof 1 relayer+1: deployed=false ours=false
+PASS  proof 1 fee+1: deployed=false ours=false
+PASS  proof 1 refund+1: deployed=false ours=false
+PASS  proof 1 proof byte 100 flipped: deployed=revert ours=revert
+PASS  proof 2 valid: deployed=true ours=true
+PASS  proof 2 root+1: deployed=false ours=false
+PASS  proof 2 nullifierHash+1: deployed=false ours=false
+PASS  proof 2 recipient+1: deployed=false ours=false
+PASS  proof 2 relayer+1: deployed=false ours=false
+PASS  proof 2 fee+1: deployed=false ours=false
+PASS  proof 2 refund+1: deployed=false ours=false
+PASS  proof 2 proof byte 100 flipped: deployed=revert ours=revert
+PASS  sanity: a valid proof is true on ours
+== T4.3 check:bytecode
+PASS  Groth16TornadoVerifier: 2826 bytes, 1252 instructions, 3 GAS opcode(s), 0 not followed by *CALL
+PASS  check:bytecode passes for Groth16TornadoVerifier
+== T4.4 / T4.5 staked probe calls our verifier inside VERIFY
+PASS  [expect admit] T4.4 real proof, expect true: admitted 0xc3a45eb66610aec931cc480fa9e85bf7900effa088bda09a19280d78551ecdda mined block 4554 frames ["0x1","0x1"]
+INFO  VERIFY frame gasUsed 261149 (limit 600,000; staked budget 1,000,000)
+PASS  VERIFY gas well under the 1,000,000 staked budget: 261149
+PASS  [expect reject] T4.5 proof with one byte flipped, expect true: rejected: validation frame 0: reverted with data 0x0287aace
+PASS  [expect reject] T4.5 valid proof but wrong recipient input, expect true: rejected: validation frame 0: reverted with data 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001476657269667950726f6f66206d69736d61746368000000000000000000000000
+```
