@@ -422,3 +422,118 @@ Waiting for owner decision.
 **ESCALATION 3 — owner decision (19:55 IST): option A.** `MIN_WITHDRAW_EXEC_GAS = 603,000`,
 `MIN_WITHDRAW_STATE_GAS = 352,000`; redeploy + re-stake; recover the first instance's float. S2's T2.6 method is
 fixed (it now also binary-searches the minimum successful execution limit by simulation) and S2's tests are re-run.
+
+### S5 results — PASSED (live instance redeployed 20:00 IST; tests done 20:15 IST)
+
+**Live TornadoExit:** `0x5bcf973fbd8f50610061821cd7a83baf818828c3` (constructor: TORNADO `0xF8d7…73fC`, VERIFIER
+`0x01163fc3…6fd1` (S4), REGISTRY `0xd51c…2d2f`, MIN_EXEC 603,000, MIN_STATE 352,000, owner = operator), float 0.3 ETH
+- deploy `0xdae6a4535ec8806b3f9629f6745beeb48aa7b35eedf1dcc7244053d0f9a22b75` (gasUsed 9,713,312)
+- stake `0xda698c66011da63997d0e5c4a965cd14a52fc2bfdbf50056bfb45ee5fc76ac40` (getDepositInfo 0.012 ETH / 86400 / 0)
+- first instance `0x1ce4…2463`: float recovered by owner `withdrawFunds` (`0x36413401d1d8d6f4aba1ab29907f99faff7efa176546776a67de3d83416354bf`); its stake stays locked.
+- Recorded in `client/src/deployments.ts` (re-exported from `client/src/config.ts`). Runner: `yarn --cwd client test:s5 [t51…t58]`.
+
+**T5.1 — QUALIFICATION TX:** https://explorer.altmempool.wtf/tx/0x7ee14bc425b7490f5f9e2ecf3cc16bf84bf6e6d46b060e8088a7b5c53e5c505d
+```
+deposit 0xd8370ff1dfc34e5936d02d84b0bdfd9cd8f64e78caa0125b5045651137202abb leaf 8, note /home/laksh/Work/projects/ethGlobal-2026/project/notes/note-204fc41728d4.json
+PASS  recipient is brand new (0 balance, nonce 0, never signs anything): 0x2bb2E230cB3485C7b1615CB31253A24af58666B3
+fee 3135884400000000 wei (= ceil(MAX_COST bound 2850804000000000 x 1.10)); MAX_COST of the final tx 2850132000000000
+PASS  [expect admit] T5.1 withdrawal through TornadoExit: admitted 0x7ee14bc425b7490f5f9e2ecf3cc16bf84bf6e6d46b060e8088a7b5c53e5c505d mined block 4873 frames ["0x1","0x1"]
+PASS  recipient balance == 1e17 - fee: 96864115600000000
+PASS  isSpent(nullifierHash)
+PASS  Withdrawal event: relayer = TornadoExit, to = recipient, fee: {"relayer":"0x5bCf973fbd8F50610061821CD7A83BaF818828c3","to":"0x2bb2E230cB3485C7b1615CB31253A24af58666B3","nullifierHash":"0x2c34ce252d58aad4b0b84db49e66d3c717e94fa43d9f651019d4166f87fb37c3","fee":"3135884400000000"}
+PASS  TornadoExit balance change == fee - actual gas cost: 1351170400000000 = 3135884400000000 - 1784714000000000 (gasUsed 892357 x 2000000000)
+PASS  TornadoExit balance change >= 0
+INFO  admission: outcome accepted, checks ["gas-limit:pass","recent-root:pass","prefix:pass","structure:pass","signature:pass","simulation:pass","trace-alignment:pass","OP-061:pass","execution:pass","trace-alignment/payer:pass","out-of-gas/payer:pass","OP-011/payer:pass","create/payer:pass","storage/payer:pass","COD-010/payer:pass","entrypoint-access/payer:pass","mempool:pass"]
+PASS  explorer shows TornadoExit as a staked entity: {"address":"0x5bCf973fbd8F50610061821CD7A83BaF818828c3","opsSeen":2,"opsIncluded":1,"status":"ok","isWhitelisted":false,"isBlacklisted":false,"stake":"0x2aa1efb94e0000","unstakeDelaySec":86400,"withdrawTime":"0x0","isStaked":true}
+INFO  frames: [{"status":"0x1","gasUsed":"292697","stateGasUsed":"0"},{"status":"0x1","gasUsed":"298074","stateGasUsed":"281520"}]
+QUALIFICATION TX: https://explorer.altmempool.wtf/tx/0x7ee14bc425b7490f5f9e2ecf3cc16bf84bf6e6d46b060e8088a7b5c53e5c505d
+```
+
+**T5.2** (reasons decoded from the revert data; `C…` are the contract's require messages):
+```
+negative-test note: 0x16caec3398c1… (leaf 9)
+PASS  sanity: the unmodified tx simulates fully successfully (so each rejection below is caused by its one change)
+PASS  [expect reject] a) wrong relayer (proof + calldata relayer = operator): rejected: validation frame 0: reverted with data 0x08c379a0… => "C4: relayer"
+PASS  [expect reject] b) fee (1 wei) < MAX_COST: rejected: validation frame 0: reverted with data 0x08c379a0… => "C5: fee < max cost"
+PASS  [expect reject] c1) refund = 1: rejected: validation frame 0: reverted with data 0x08c379a0… => "C4: refund"
+PASS  [expect reject] c2) SENDER value = 1 wei: rejected: validation frame 0: reverted with data 0x08c379a0… => "C2: value"
+PASS  [expect reject] d) unknown root (tree with an extra leaf the pool never saw): rejected: validation frame 0: reverted with data 0x08c379a0… => "C9: unknown root"
+INFO  e1 note: isSpent true, NONCE_MANAGER seq(TornadoExit, key) = 1
+PASS  [expect reject] e1) already-spent nullifier (T5.1's note, spent through TornadoExit): rejected: prefix gas budget exceeded: 450000 > 100000 (MAX_VERIFY_GAS)
+PASS  [expect reject] e2) already-spent nullifier (note spent by a legacy withdraw; keyed nonce unused): rejected: validation frame 0: reverted with data 0x08c379a0… => "C9: spent"
+PASS  [expect reject] f) invalid proof (one byte flipped): rejected: validation frame 0: reverted with data 0x0287aace… => PairingOpcodeFailed()
+PASS  [expect reject] g) valid proof for recipient R, calldata names another recipient: rejected: validation frame 0: reverted with data 0x08c379a0… => "C10: invalid proof"
+PASS  [expect reject] h1) extra third frame: rejected: validation frame 0: reverted with data 0x08c379a0… => "C1: frame count"
+PASS  [expect reject] h2) SENDER target is not the pool: rejected: validation frame 0: reverted with data 0x08c379a0… => "C2: target"
+PASS  [expect reject] h3) wrong selector (0xdeadbeef, same length): rejected: validation frame 0: reverted with data 0x08c379a0… => "C3: selector"
+PASS  [expect reject] i) nonce key != keyFor(nullifierHash): rejected: validation frame 0: reverted with data 0x08c379a0… => "C7: nonce key"
+PASS  [expect reject] j) nonceSeq = 1: rejected: prefix gas budget exceeded: 450000 > 100000 (MAX_VERIFY_GAS)
+PASS  [expect reject] k1) SENDER execution gas 602999 (< min): rejected: validation frame 0: reverted with data 0x08c379a0… => "C8: execution gas"
+PASS  [expect reject] k2) SENDER state gas 351999 (< min): rejected: validation frame 0: reverted with data 0x08c379a0… => "C8: state gas"
+PASS  TornadoExit balance unchanged across a)–k): 302702292800000000 -> 302702292800000000
+-- T5.2 l) contract recipient (amended): admitted, frame 1 reverts, loss <= one tx, note's key consumed
+PASS  RevertingReceiver has code: 0x38fb37cf6d8e9d4605f81ea0fa4f547ebf6f1c83
+INFO  l) recipient = RevertingReceiver: admitted 0x782be723dc3bf49bac568d9e3ee4b49f07d0ab0bf95f9bab326113ecb68675db mined block 4888 frames ["0x1","0x0"]
+PASS  l) admitted (no C6), frame 0 ok, frame 1 reverted
+PASS  l) TornadoExit loss == exactly that one tx's gas cost: 1199378000000000 wei (max cost 2850180000000000)
+PASS  l) the note is not spent (withdraw reverted)
+PASS  l) the note's keyed nonce was consumed: 0 -> 1
+PASS  [expect reject] l) second attempt, same note, EOA recipient: rejected: prefix gas budget exceeded: 450000 > 100000 (MAX_VERIFY_GAS)
+PASS  l) TornadoExit balance unchanged by the second attempt
+```
+Notes on T5.2:
+- e1, j and the l) retry are rejected because the keyed nonce does not match (ethrex's own simulation of the j tx:
+  `"Invalid Transaction: Nonce mismatch: expected 0, got 1"`); the sidecar's error text for these cases shows the
+  canonical-mempool violation ("prefix gas budget exceeded: 450000 > 100000 (MAX_VERIFY_GAS)") instead of the nonce
+  error. e2 (a note spent by a legacy withdraw, keyed nonce unused) reaches TornadoExit and fails `C9: spent`.
+- f: the flipped byte makes the point invalid, so our verifier's ECPAIRING call fails (`PairingOpcodeFailed()`).
+- (The first run's l) line printed "FAIL [expect admit]" only because the generic reporter treats a reverted frame
+  as a failure; l)'s own assertions all passed. The reporter line was changed to INFO.)
+
+**T5.3–T5.8:**
+```
+== T5.3 duplicate spend through the mempool (same note, two recipients)
+INFO  tx1 admitted
+INFO  tx2 rejected: Frame transaction cannot be replaced: fee too low
+PASS  [expect admit] tx1 -> recipient 1: admitted 0x93760f73a73a83798f2c8dc173a09659d19ecd44ffbc165d0c89ee5acfa4c218 mined block 4898 frames ["0x1","0x1"]
+PASS  [expect reject] tx2 -> recipient 2 (same note, same slot, same fee): rejected: Frame transaction cannot be replaced: fee too low
+PASS  at most one included: 1
+INFO  recipient 1 balance 96864115600000000, recipient 2 balance 0 (the second note-holder attempt was refused at submission and costs nothing)
+PASS  TornadoExit reputation stays ACTIVE (status ok): {"address":"0x5bCf973fbd8F50610061821CD7A83BaF818828c3","opsSeen":4,"opsIncluded":2,"status":"ok","isWhitelisted":false,"isBlacklisted":false,"stake":"0x2aa1efb94e0000","unstakeDelaySec":86400,"withdrawTime":"0x0","isStaked":true}
+INFO  reputation counters before {"seen":3,"included":2} after {"seen":4,"included":2}
+== T5.4 canonical mempool (ethrex eth_sendRawTransaction) rejects the same tx
+PASS  ethrex rejected the raw 0x06 tx: Invalid params: Frame transaction prefix gas budget (frames + sig cost) exceeds MAX_VERIFY_GAS
+INFO  ethrex_simulateFrameTransaction: canonicalMempoolValid false, violation prefix gas budget exceeded: 450000 > 100000 (MAX_VERIFY_GAS)
+PASS  the note stays unspent (reusable)
+== T5.5 stake is necessary (unstaked TornadoExit, same constructor params)
+deployed unstaked TornadoExit 0x06db3b9dd4348451acebeaa11c1cba2cd2f27eef tx 0x2575e4461f1133bbd832b4d63076b11a69179ea5725dae67a2f481f2b4dd7ada
+PASS  the second instance has no stake: 0,0,0
+PASS  [expect reject] valid withdrawal through the unstaked instance: rejected: payer uses banned opcode: SELFBALANCE
+== T5.6 fee accounting over 3 consecutive withdrawals
+PASS  [expect admit] withdrawal 1: admitted 0xefcae7f69b85676d68b4633c7d5fe39c151ae8a8875be1ce3f66af43ec66212e mined block 4908 frames ["0x1","0x1"]
+PASS  withdrawal 1: TornadoExit net balance did not decrease: 302854037200000000 -> 304205183600000000 (fee 3135884400000000, gas 1784738000000000, net +1351146400000000)
+PASS  [expect admit] withdrawal 2: admitted 0xe9aa81a4629e11859324bd7ca8461e243fcc782d8c049b48dd8646123d4530fe mined block 4913 frames ["0x1","0x1"]
+PASS  withdrawal 2: TornadoExit net balance did not decrease: 304205183600000000 -> 305556330000000000 (fee 3135884400000000, gas 1784738000000000, net +1351146400000000)
+PASS  [expect admit] withdrawal 3: admitted 0x94273a114a9d0f163384a2e52a60b12ad5f271320f6f7323d99d858a74a44937 mined block 4921 frames ["0x1","0x1"]
+PASS  withdrawal 3: TornadoExit net balance did not decrease: 305556330000000000 -> 306907476400000000 (fee 3135884400000000, gas 1784738000000000, net +1351146400000000)
+== T5.7 plain ETH transfer to TornadoExit
+PASS  transfer succeeded (receive()): tx 0xb14e0bba7f38af486ac6e735e680f1bf2c418d1404ca2903e384bb3668bc5f7b, +1000000000000000
+PASS  no inner call (in particular no DELEGATECALL to the APPROVE helper): 0 inner calls; gasUsed 21067
+== T5.8 owner functions
+PASS  non-owner stake() on the live instance reverts: tx 0x3674b707caf39aea58e38e75ae772ef79fd72ed1dff3f77149d30621141dd541
+PASS  non-owner unlockStake() on the live instance reverts: tx 0x5c6e11905f6e5bac46a5958a019c509d7896b6e541e67955756ec77626abe88d
+PASS  non-owner withdrawStake(stranger) on the live instance reverts: tx 0xe1ff822f19f2956f0e1b334e1ec7bb5876faa7f3e5845de89931abd9beb35b3d
+PASS  non-owner withdrawFunds(stranger, 1) on the live instance reverts: tx 0xd98fb57e1e98e8ea0997e69fe07e268c9db21dc343d912404dd7f2dc4d50cb71
+PASS  live instance still staked, not unlocking: 12000000000000000,86400,0
+PASS  owner stake() on the T5.5 instance: tx 0x4b108851ddcb70790ff8ed0466353b8cec09a260602e2535cd6dabfdf828807c: 12000000000000000,86400,0
+PASS  owner unlockStake() on the T5.5 instance sets withdrawTime: tx 0x5b5af07e900fe50e9a789fac62efaec42cdd475cba883ffc75177ef65e20b760: 12000000000000000,86400,1794062508
+```
+- T5.3: the second attempt for the same note is refused at submission (same `(TornadoExit, key, 0)` slot, no fee
+  bump): recipient 2 gets nothing and nobody pays anything for it. Reputation `ok`, opsSeen 3 → 4, opsIncluded 2.
+- T5.4: ethrex canonical: `Invalid params: Frame transaction prefix gas budget (frames + sig cost) exceeds MAX_VERIFY_GAS`.
+- T5.5: unstaked instance `0x06db3b9dd4348451acebeaa11c1cba2cd2f27eef` (deploy `0x2575e4461f1133bbd832b4d63076b11a69179ea5725dae67a2f481f2b4dd7ada`):
+  `payer uses banned opcode: SELFBALANCE`.
+- T5.6: +0.0013511 ETH net per withdrawal (fee 0.0031359 − gas 0.0017847 at 2 gwei).
+- T5.8: owner `withdrawFunds` also exercised on the first instance (above).
+
+**Exit criteria:** T5.1–T5.8 pass with evidence; TornadoExit reputation `ok` (ACTIVE), isStaked true.

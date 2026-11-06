@@ -53,3 +53,6 @@ export const FRAME_MAX_FEE_PER_GAS = 2_000_000_000n;
 
 export const explorerTx = (hash: string) => `${EXPLORER_URL}/tx/${hash}`;
 export const explorerReputation = () => `${EXPLORER_URL}/reputation`;
+
+/** Our deployed contracts (live TornadoExit, Groth16TornadoVerifier): see deployments.ts. */
+export { EXIT, OUR_CONTRACTS } from "./deployments.js";

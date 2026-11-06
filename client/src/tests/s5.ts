@@ -157,7 +157,7 @@ async function t52() {
   const seqBefore = await seqOf(EXIT.address, kl);
   const bl0 = await exitBal();
   const al = await settle(await submit("l) recipient = RevertingReceiver", wl.tx, "admit"));
-  console.log(report(al));
+  console.log(`INFO  l) ${al.outcome} ${al.hash}${al.receipt ? ` mined block ${BigInt(al.receipt.blockNumber)} frames ${JSON.stringify(al.receipt.frameReceipts?.map((f) => f.status))}` : ` ${al.error}`}`);
   const bl1 = await exitBal();
   const lcost = al.receipt ? gasCost(al.receipt) : 0n;
   check(al.outcome === "admitted" && al.receipt?.frameReceipts?.[0]?.status === "0x1" && al.receipt?.frameReceipts?.[1]?.status === "0x0", "l) admitted (no C6), frame 0 ok, frame 1 reverted");
