@@ -16,3 +16,4 @@ dist/
 .DS_Store
 # fetched Tornado v2.0 circuit + proving key (yarn --cwd prover fetch-circuits)
 prover/circuits/
+client/src/scratch/

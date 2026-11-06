@@ -315,7 +315,7 @@ note, bounded by C7) is documented. T5.2(l) becomes: reverting contract recipien
 TornadoExit loss ≤ one tx's gas, keyed nonce consumed, a second attempt with the same note rejected.
 Owner also approved starting S4 in parallel. **S3 exit criteria: all outcomes resolved.**
 
-## S4. Embedded Groth16 verifier — PASSED (18:50 → 19:02 IST)
+## S4. Embedded Groth16 verifier — PASSED (done 19:34 IST)
 
 `contracts/src/Groth16TornadoVerifier.sol`: VK copied from the tornado-core **v2.0** release `Verifier.sol` (the key
 the deployed Verifier embeds; tornado-core's repo `contracts/Verifier.sol` is the v2.1 key, see ESCALATION 1).
@@ -375,3 +375,46 @@ PASS  VERIFY gas well under the 1,000,000 staked budget: 261149
 PASS  [expect reject] T4.5 proof with one byte flipped, expect true: rejected: validation frame 0: reverted with data 0x0287aace
 PASS  [expect reject] T4.5 valid proof but wrong recipient input, expect true: rejected: validation frame 0: reverted with data 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001476657269667950726f6f66206d69736d61746368000000000000000000000000
 ```
+
+## S5. TornadoExit — IN PROGRESS (started 19:34 IST)
+
+`contracts/src/TornadoExit.sol` (C0–C12, C6 amended per ESCALATION 2), client builder `client/src/lib/exit.ts`
+(`buildExitWithdrawTx`), deploy script `client/src/setup/deployExit.ts`. `yarn check:bytecode`: TornadoExit 5,145
+bytes, 9 GAS opcodes, all immediately before a *CALL.
+
+First instance (MIN_EXEC 384,000 / MIN_STATE 352,000): `0x1ce44ca7680af352ac3817d0b5f758a4c3042463`, deploy
+`0xb8da9330085ce81104e339fa68e72423cf043e1b26c8ac07e41cd3d3d01ab665`, stake `0x1293c9a0ab657085f04285d9f87ec3b680b3efad4b8accdcab792254796f570f`
+(getDepositInfo 0.012 ETH / 86400 / 0).
+
+### ESCALATION 3: the S2-derived MIN_WITHDRAW_EXEC_GAS (384,000) makes every withdrawal run out of gas
+Section / test: S5, T5.1 (root cause in S2 T2.6's method)
+
+What I expected (per BUILD-PLAN): frame 1 with execution limit = gasUsed × 1.25 (384,000) and state limit 352,000
+succeeds.
+
+What happened: first T5.1 attempt `0x9e094800f369d26c69d1d5165b8c5c5ee9ba0a0fea9918609d026175de60bb2b` was admitted and
+mined, frame 0 ok, **frame 1 reverted out of gas** (gasUsed 0x5dc00 = 384,000 = the full limit, stateGasUsed 0).
+TornadoExit paid the gas (≈ 696,775 gas × 2 gwei ≈ 0.0014 ETH) without reimbursement, and the note's keyed nonce was
+consumed (note `note-266f350a2dad` is now permanently unusable through TornadoExit — the C7 bound behaving exactly as
+predicted in ESCALATION 2).
+Read-only `ethrex_simulateFrameTransaction` binary search (same withdraw as frame 1):
+- EOA sender, relayer = EOA: succeeds only with an execution **limit ≥ ≈ 481,627**, although the frame then
+  **reports gasUsed 306,907**. Independent of the state limit (281,520 / 352,000 / 1,000,000 all give 481,627).
+- relayer = TornadoExit (contract): same 481,627 minimum, gasUsed 309,874.
+- minimum state limit (exec 1,000,000): ≈ 281,520 (= the measured stateGasUsed), so MIN_STATE 352,000 is fine.
+So ≈ 174,720 gas of execution headroom is required but not reported as used (ethrex's state-gas accounting needs it
+available during the new-account / new-slot charges). "gasUsed + 25 %" is the wrong basis for C8; the minimum
+*limit* that succeeds is.
+
+What I already ruled out: the sender type (EOA and contract senders behave the same), VERIFY-frame load (heavy and
+plain VERIFY identical), the relayer being a contract (+2,967 used, same minimum limit), the state limit.
+
+Options I see (do NOT pick one):
+  A) Set `MIN_WITHDRAW_EXEC_GAS` = minimum successful limit × 1.25, rounded up: ceil(481,627 × 1.25) = **603,000**
+     (covers older roots too: ≤ 29 extra `isKnownRoot` iterations ≈ +61k → ≈ 543k). Keep `MIN_WITHDRAW_STATE_GAS =
+     352,000`. Redeploy and re-stake TornadoExit (immutables); recover the first instance's float with its
+     `withdrawFunds` (its 0.012 ETH stake stays locked until unlock + 1 day). Fee rises by ≈ 219k gas × maxFee
+     (≈ +0.00044 ETH at 2 gwei). Re-record S2's T2.6 conclusion with the corrected method.
+  B) As A but with a larger margin (e.g. ×1.5 → 723,000) to be robust to unknown ethrex accounting changes; higher fee.
+Impact on schedule: A or B ≈ 15 min, then S5 continues.
+Waiting for owner decision.
