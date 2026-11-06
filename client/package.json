@@ -3,10 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "check:devnet": "tsx src/checkDevnet.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup:key": "tsx src/setup/genOperatorKey.ts",
+    "setup:fund": "tsx src/setup/fundOperator.ts",
+    "test:s1": "tsx src/tests/s1SelfRelay.ts"
   },
   "dependencies": {
     "@forshtat/hegota-support": "0.0.1",

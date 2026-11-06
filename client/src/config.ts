@@ -52,4 +52,4 @@ export const LEGACY_GAS_PRICE = 2_000_000n; // 0.002 gwei
 export const FRAME_MAX_FEE_PER_GAS = 2_000_000_000n;
 
 export const explorerTx = (hash: string) => `${EXPLORER_URL}/tx/${hash}`;
-export const explorerAddress = (addr: string) => `${EXPLORER_URL}/address/${addr}`;
+export const explorerReputation = () => `${EXPLORER_URL}/reputation`;
