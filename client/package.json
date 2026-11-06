@@ -18,7 +18,9 @@
     "test:s2:framegas": "tsx src/tests/s2FrameGas.ts",
     "test:s3": "tsx src/tests/s3.ts",
     "check:bytecode": "tsx src/checkBytecode.ts",
-    "test:s4": "tsx src/tests/s4.ts"
+    "test:s4": "tsx src/tests/s4.ts",
+    "test:s5": "tsx src/tests/s5.ts",
+    "deploy:exit": "tsx src/setup/deployExit.ts"
   },
   "dependencies": {
     "@forshtat/hegota-support": "0.0.1",

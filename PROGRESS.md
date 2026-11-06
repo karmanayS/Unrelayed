@@ -418,3 +418,7 @@ Options I see (do NOT pick one):
   B) As A but with a larger margin (e.g. ×1.5 → 723,000) to be robust to unknown ethrex accounting changes; higher fee.
 Impact on schedule: A or B ≈ 15 min, then S5 continues.
 Waiting for owner decision.
+
+**ESCALATION 3 — owner decision (19:55 IST): option A.** `MIN_WITHDRAW_EXEC_GAS = 603,000`,
+`MIN_WITHDRAW_STATE_GAS = 352,000`; redeploy + re-stake; recover the first instance's float. S2's T2.6 method is
+fixed (it now also binary-searches the minimum successful execution limit by simulation) and S2's tests are re-run.

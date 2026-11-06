@@ -11,8 +11,8 @@ import { proveWithdrawal, withdrawCalldata } from "./tornado.js";
 export const exitAbi = loadArtifact("TornadoExit").abi;
 /** Gas limit of the VERIFY frame (measured ≈ 300k incl. the 261k proof check; staked budget 1,000,000). */
 export const EXIT_VERIFY_GAS = 450_000n;
-/** BUILD-PLAN §S2 T2.6 measurements + 25 % (PROGRESS.md). */
-export const MIN_WITHDRAW_EXEC_GAS = 384_000n;
+/** BUILD-PLAN §S2 T2.6: 25 % over the minimum successful frame-1 limits (PROGRESS.md ESCALATION 3). */
+export const MIN_WITHDRAW_EXEC_GAS = 603_000n; // ceil(481,627 minimum successful limit × 1.25), ESCALATION 3
 export const MIN_WITHDRAW_STATE_GAS = 352_000n;
 /** PRE-APPROVED (T3.2): the devnet accepts 256-bit nonce keys, so the key is the nullifier hash itself. */
 export const keyFor = (nullifierHash: Hex): bigint => BigInt(nullifierHash);
