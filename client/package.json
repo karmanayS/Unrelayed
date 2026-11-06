@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "setup:key": "tsx src/setup/genOperatorKey.ts",
     "setup:fund": "tsx src/setup/fundOperator.ts",
-    "test:s1": "tsx src/tests/s1SelfRelay.ts"
+    "test:s1": "tsx src/tests/s1SelfRelay.ts",
+    "deposit": "tsx src/commands/deposit.ts",
+    "prove": "tsx src/commands/prove.ts",
+    "test:s2": "tsx src/tests/s2.ts",
+    "test:s2:framegas": "tsx src/tests/s2FrameGas.ts"
   },
   "dependencies": {
     "@forshtat/hegota-support": "0.0.1",
