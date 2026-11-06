@@ -20,7 +20,9 @@
     "check:bytecode": "tsx src/checkBytecode.ts",
     "test:s4": "tsx src/tests/s4.ts",
     "test:s5": "tsx src/tests/s5.ts",
-    "deploy:exit": "tsx src/setup/deployExit.ts"
+    "deploy:exit": "tsx src/setup/deployExit.ts",
+    "test:e2e": "tsx src/tests/e2e.ts",
+    "cli": "tsx src/cli.ts"
   },
   "dependencies": {
     "@forshtat/hegota-support": "0.0.1",

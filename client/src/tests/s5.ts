@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { concat, decodeEventLog, encodeFunctionData, getAbiItem, keccak256, numberToHex, pad, toEventSelector, type Address, type Hex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { ADDR, ETHREX_URL, explorerTx, STAKE, TORNADO } from "../config.js";
+import { ADDR, ETHREX_URL, explorerTx, LEGACY_GAS_PRICE, STAKE, TORNADO } from "../config.js";
 import { EXIT } from "../deployments.js";
 import { registryAbi, tornadoAbi } from "../lib/abis.js";
 import { admission, report, settle, submit, type Attempt } from "../lib/attempt.js";
@@ -19,7 +19,13 @@ import { checkedEvents, deposit, fetchDepositEvents, loadNote, NOTES_DIR, pool, 
 
 const key = operatorKey();
 const operator = privateKeyToAccount(key).address;
-const RESULTS = path.join(NOTES_DIR, "s5-results.json");
+const RESULTS = process.env.S5_RESULTS ?? path.join(NOTES_DIR, "s5-results.json");
+/** e2e mode (yarn test:e2e): after each test's assertions, sweep fresh recipients back to the operator and reuse
+ * notes that the rejections left unspent, so repeated runs fit the devnet budget. Never changes what is asserted. */
+const SWEEP = process.env.SWEEP === "1";
+const FRESH_UNSTAKED = process.env.FRESH_UNSTAKED === "1";
+const spare: SavedNote[] = [];
+const recipientKeys = new Map<string, Hex>();
 const results: Record<string, unknown> = fs.existsSync(RESULTS) ? JSON.parse(fs.readFileSync(RESULTS, "utf8")) : {};
 const save = (k: string, v: unknown) => {
   results[k] = v;
@@ -36,7 +42,22 @@ const logA = (a: Attempt) => {
   if (!a.pass) failures++;
   return a;
 };
-const fresh = (): Address => privateKeyToAccount(generatePrivateKey()).address;
+const fresh = (): Address => {
+  const k = generatePrivateKey();
+  const a = privateKeyToAccount(k).address;
+  recipientKeys.set(a.toLowerCase(), k);
+  return a;
+};
+/** e2e only: returns a funded fresh recipient's balance to the operator (after the test has checked it). */
+async function sweep(addr: Address) {
+  const k = recipientKeys.get(addr.toLowerCase());
+  const bal = await getBalance(addr);
+  const gas = 21_000n * LEGACY_GAS_PRICE;
+  if (!SWEEP || !k || bal <= gas) return;
+  const { hash } = await sendLegacyAndWait(k, { to: operator, value: bal - gas, gas: 21_000n });
+  console.log(`INFO  e2e cleanup: swept ${bal - gas} wei from ${addr} back to the operator (${hash})`);
+}
+const nextNote = async (): Promise<SavedNote> => spare.shift() ?? (await deposit(key)).saved;
 const exitBal = () => getBalance(EXIT.address);
 const nonceSlot = (sender: Address, k: bigint): Hex => keccak256(concat([pad(sender, { size: 32 }), numberToHex(k, { size: 32 })]));
 const seqOf = async (sender: Address, k: bigint) => BigInt(await rpc("eth_getStorageAt", [ADDR.NONCE_MANAGER, nonceSlot(sender, k), "latest"]));
@@ -83,6 +104,7 @@ async function t51() {
   console.log(`INFO  frames: ${JSON.stringify(a.receipt.frameReceipts?.map((f: any) => ({ status: f.status, gasUsed: BigInt(f.gasUsed).toString(), stateGasUsed: BigInt(f.stateGasUsed ?? 0).toString() })))}`);
   console.log(`QUALIFICATION TX: ${explorerTx(a.hash)}`);
   save("t51", { note: d.file, recipient, fee: w.fee, maxCost: w.maxCost, attempt: a, before, after, cost, adm, rep });
+  await sweep(recipient);
 }
 
 // --------------------------------------------------------------------------------------------- T5.2 ----
@@ -169,6 +191,13 @@ async function t52() {
   const ar = logA(await settle(await submit("l) second attempt, same note, EOA recipient", retry.tx, "reject")));
   check((await exitBal()) === bl1, "l) TornadoExit balance unchanged by the second attempt");
   save("t52", { out, before, after, l: { attempt: al, loss: bl0 - bl1, seqBefore, seqAfter, retry: ar } });
+  spare.push(n); // every a)–k) attempt was rejected: n is unspent and its key unused
+  if (SWEEP) {
+    // L can no longer go through TornadoExit, but its owner can still withdraw it the ordinary way.
+    const p = await proveRaw(L, { recipient: operator, relayer: operator, fee: 0n });
+    const { hash } = await sendLegacyAndWait(key, { to: ADDR.TORNADO_POOL, data: withdrawCalldata(p), gas: 3_000_000n });
+    console.log(`INFO  e2e cleanup: note L withdrawn to the operator with a legacy tx (${hash})`);
+  }
 }
 
 // --------------------------------------------------------------------------------------------- T5.3 ----
@@ -196,12 +225,13 @@ async function t53() {
   check(rep?.status === "ok", "TornadoExit reputation stays ACTIVE (status ok)", JSON.stringify(rep));
   console.log(`INFO  reputation counters before ${JSON.stringify({ seen: repBefore?.opsSeen, included: repBefore?.opsIncluded })} after ${JSON.stringify({ seen: rep?.opsSeen, included: rep?.opsIncluded })}`);
   save("t53", { s1, s2, b1, b2, repBefore, rep });
+  await sweep(r1);
 }
 
 // --------------------------------------------------------------------------------------------- T5.4 ----
 async function t54() {
   console.log("\n== T5.4 canonical mempool (ethrex eth_sendRawTransaction) rejects the same tx");
-  const d = (await deposit(key)).saved;
+  const d = await nextNote();
   const w = await buildExitWithdrawTx(d, fresh());
   let msg = "";
   try {
@@ -215,12 +245,13 @@ async function t54() {
   console.log(`INFO  ethrex_simulateFrameTransaction: canonicalMempoolValid ${sim.canonicalMempoolValid}, violation ${sim.canonicalMempoolViolation}`);
   check(!(await pool.isSpent(w.proof.nullifierHash)), "the note stays unspent (reusable)");
   save("t54", { note: d, msg, sim: { canonicalMempoolValid: sim.canonicalMempoolValid, canonicalMempoolViolation: sim.canonicalMempoolViolation } });
+  spare.unshift(d);
 }
 
 // --------------------------------------------------------------------------------------------- T5.5 ----
 const U_STATE = path.join(NOTES_DIR, "s5-unstaked.json");
-async function unstakedExit(): Promise<Address> {
-  if (fs.existsSync(U_STATE)) {
+async function unstakedExit(forceNew = false): Promise<Address> {
+  if (!forceNew && fs.existsSync(U_STATE)) {
     const a = JSON.parse(fs.readFileSync(U_STATE, "utf8")).address;
     if ((await getCode(a)) !== "0x") return a;
   }
@@ -232,13 +263,18 @@ async function unstakedExit(): Promise<Address> {
 }
 async function t55() {
   console.log("\n== T5.5 stake is necessary (unstaked TornadoExit, same constructor params)");
-  const u = await unstakedExit();
+  const u = await unstakedExit(FRESH_UNSTAKED);
   const info = await client.readContract({ address: ADDR.STAKING_REGISTRY, abi: registryAbi, functionName: "getDepositInfo", args: [u] });
   check(info[0] === 0n, "the second instance has no stake", String(info));
-  const d = (await deposit(key)).saved;
+  const d = spare[0] ?? (await deposit(key)).saved; // not consumed by a rejection
   const w = await buildExitWithdrawTx(d, fresh(), { exit: u });
   const a = logA(await settle(await submit("valid withdrawal through the unstaked instance", w.tx, "reject")));
   save("t55", { unstaked: u, attempt: a, adm: await admission(a.hash) });
+  if (SWEEP && FRESH_UNSTAKED) {
+    const bal = await getBalance(u);
+    await sendLegacyAndWait(key, { to: u, gas: 200_000n, data: encodeFunctionData({ abi: exitAbi, functionName: "withdrawFunds", args: [operator, bal] }) });
+    console.log(`INFO  e2e cleanup: recovered the unstaked instance's float (${bal} wei)`);
+  }
 }
 
 // --------------------------------------------------------------------------------------------- T5.6 ----
@@ -246,8 +282,9 @@ async function t56() {
   console.log("\n== T5.6 fee accounting over 3 consecutive withdrawals");
   const rows = [];
   for (let i = 0; i < 3; i++) {
-    const d = (await deposit(key)).saved;
-    const w = await buildExitWithdrawTx(d, fresh());
+    const d = await nextNote();
+    const r = fresh();
+    const w = await buildExitWithdrawTx(d, r);
     const before = await exitBal();
     const a = await settle(await submit(`withdrawal ${i + 1}`, w.tx, "admit"));
     console.log(report(a));
@@ -256,6 +293,7 @@ async function t56() {
     const cost = a.receipt ? gasCost(a.receipt) : 0n;
     check(after >= before, `withdrawal ${i + 1}: TornadoExit net balance did not decrease`, `${before} -> ${after} (fee ${w.fee}, gas ${cost}, net +${after - before})`);
     rows.push({ hash: a.hash, fee: w.fee, cost, before, after });
+    await sweep(r);
   }
   save("t56", rows);
 }

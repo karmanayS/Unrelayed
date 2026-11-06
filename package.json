@@ -9,6 +9,8 @@
     "deposit": "yarn --cwd client --silent deposit",
     "prove": "yarn --cwd client --silent prove",
     "fetch-circuits": "yarn --cwd prover --silent fetch-circuits",
-    "check:bytecode": "forge build --root contracts && yarn --cwd client --silent check:bytecode"
+    "check:bytecode": "forge build --root contracts && yarn --cwd client --silent check:bytecode",
+    "test:e2e": "yarn --cwd client --silent test:e2e",
+    "cli": "yarn --cwd client --silent cli"
   }
 }

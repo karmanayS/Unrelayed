@@ -423,7 +423,7 @@ Waiting for owner decision.
 `MIN_WITHDRAW_STATE_GAS = 352,000`; redeploy + re-stake; recover the first instance's float. S2's T2.6 method is
 fixed (it now also binary-searches the minimum successful execution limit by simulation) and S2's tests are re-run.
 
-### S5 results — PASSED (live instance redeployed 20:00 IST; tests done 20:15 IST)
+### S5 results — PASSED (live instance redeployed 20:00 IST; tests done 20:12 IST)
 
 **Live TornadoExit:** `0x5bcf973fbd8f50610061821cd7a83baf818828c3` (constructor: TORNADO `0xF8d7…73fC`, VERIFIER
 `0x01163fc3…6fd1` (S4), REGISTRY `0xd51c…2d2f`, MIN_EXEC 603,000, MIN_STATE 352,000, owner = operator), float 0.3 ETH
