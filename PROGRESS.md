@@ -537,3 +537,72 @@ PASS  owner unlockStake() on the T5.5 instance sets withdrawTime: tx 0x5b5af07e9
 - T5.8: owner `withdrawFunds` also exercised on the first instance (above).
 
 **Exit criteria:** T5.1–T5.8 pass with evidence; TornadoExit reputation `ok` (ACTIVE), isStaked true.
+
+## S6. CLI and automated end-to-end suite — PASSED (20:12 → 20:42 IST)
+
+- `yarn cli deposit` / `yarn cli withdraw --note <note|file> [--to <addr>]` / `yarn cli status --note <…>`
+  (`client/src/cli.ts`). `withdraw` deletes `OPERATOR_PRIVATE_KEY` from its own environment before doing anything,
+  so it provably uses no funded key; with no `--to` it generates a recipient and prints its key once, locally.
+  Example run (note created by `yarn cli deposit`, tx `0xb521b6a3…639c`):
+```
+no --to given: generated a brand-new recipient 0x9b3d13AE4a16d0180f64879dFB0336543aBfE860
+  its private key (shown once, only here): <redacted>
+TornadoExit (staked shared sender, pays the gas, reimbursed by the Tornado fee): 0x5bcf973fbd8f50610061821cd7a83baf818828c3
+recipient balance before: 0.000000 ETH
+rebuilding the Merkle tree from Deposit events and generating the proof locally…
+proof ready in 3.6 s; fee 0.003136 ETH (worst-case gas 0.002850 ETH + 10 %)
+submitting the frame transaction to the ERC-8421 alt mempool (eth_sendFrameTransaction)…
+admitted: 0x2565766b7962cfd481e2359c2266d736c4380326a8442e75e5fa5125c4f562e8
+mined in block 4966: every frame succeeded
+recipient balance after:  0.096864 ETH (= 0.1 ETH - fee 0.003136 ETH)
+explorer: https://explorer.altmempool.wtf/tx/0x2565766b7962cfd481e2359c2266d736c4380326a8442e75e5fa5125c4f562e8
+```
+- `yarn test:e2e` (`client/src/tests/e2e.ts`): `check:devnet`, then T5.1–T5.7 (`s5.ts t51…t57`) with fresh notes,
+  fresh recipients and a fresh unstaked instance for T5.5. e2e mode returns funds after each test's assertions
+  (sweeps fresh recipients back to the operator, recovers the unstaked instance's float, withdraws the locked l) note
+  with a legacy tx) and reuses notes that rejections left unspent, so repeated runs fit the devnet budget.
+- `yarn demo` (`client/src/demo.ts`): the narrated run for the video; `DEMO_PAUSE_MS` sets the pacing.
+
+### T6.1 `yarn test:e2e` twice in a row — PASS
+- run 1: `e2e PASSED in 326 s` — 77 PASS, 0 FAIL (`notes/e2e-2026-11-06T14-46-03-296Z.json`)
+- run 2: `e2e PASSED in 349 s` — 77 PASS, 0 FAIL (`notes/e2e-2026-11-06T14-51-50-954Z.json`)
+- operator balance after both: 2.5625 ETH.
+
+### T6.2 `yarn demo` end to end, no manual edits — PASS
+```
+Relayer-free Tornado Cash withdrawals on the ERC-8421 alternative mempool
+TornadoExit 0x5bcf973fbd8f50610061821cd7a83baf818828c3: staked 0.012000 ETH (min 0.012000 ETH), locked, reputation ok, balance 0.322371 ETH
+Tornado 0.1 ETH pool 0xF8d72424D07721aB219cdbd2852657F3301673fC (the unmodified, real contract)
+
+── 1. Deposit 0.1 ETH into Tornado (an ordinary deposit; we also make a second note for steps 5–6)
+deposit tx 0x65fb2c93b5d64335608e35526c55570b3fa3c86b4af9ef4afdcbb71e8fcf8bb7 → leaf 30; note saved to /home/laksh/Work/projects/ethGlobal-2026/project/notes/note-1e7ee5b00b69.json
+note: tornado-eth-0.1-1337-0x23ca655…  (the secret; it never leaves this machine)
+second deposit 0x697640ed0551634f5212d67fddc30aa79b542644445b0421aecfb9751e7d688d → leaf 31
+
+── 2. A brand-new wallet to withdraw to: no ETH, no history, it never signs anything
+recipient 0x6b0834218eFd2997b4163b29f2B2B117d1c13232: balance 0.000000 ETH, nonce 0
+no relayer, no funded key: the only parties are this laptop, the mempool and two contracts
+
+── 3. Withdraw through TornadoExit (frame tx: VERIFY proof in TornadoExit → SENDER Tornado.withdraw)
+proof generated locally in 3.7 s; relayer = TornadoExit, fee 0.003136 ETH (= max gas cost 0.002850 ETH + 10 %)
+nonce key = nullifierHash 0x0bae505d0dddca6e… (one slot per note)
+admitted by the ERC-8421 alt mempool: 0x8afb0b6e64c63b335220ef8d199ca8fd74e41854c4e8729402773bf833418301
+mined in block 5096; frames ["ok","ok"]
+
+── 4. The recipient is funded
+recipient 0x6b0834218eFd2997b4163b29f2B2B117d1c13232: 0.096864 ETH
+explorer: https://explorer.altmempool.wtf/tx/0x8afb0b6e64c63b335220ef8d199ca8fd74e41854c4e8729402773bf833418301
+
+── 5. The canonical EIP-8141 mempool (ethrex) refuses the same kind of transaction
+ethrex: Invalid params: Frame transaction prefix gas budget (frames + sig cost) exceeds MAX_VERIFY_GAS
+(the proof check needs ~260k validation gas and reads Tornado's storage; the canonical mempool allows 100k and no foreign storage)
+
+── 6. One note, two withdrawals at once: the mempool keeps only one
+attempt A admitted: 0xfc862aae470ca608fb54e2407c17a2b67261d587c3b56c4039d06713e8346018
+attempt B refused: Frame transaction cannot be replaced: fee too low
+(both use the nonce key = nullifierHash, so they occupy the same mempool slot; TornadoExit pays nothing for B)
+attempt A mined in block 5101: https://explorer.altmempool.wtf/tx/0xfc862aae470ca608fb54e2407c17a2b67261d587c3b56c4039d06713e8346018
+
+TornadoExit reputation: ok (seen 22, included 18); balance 0.325074 ETH
+done.
+```
