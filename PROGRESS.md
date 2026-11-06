@@ -538,7 +538,7 @@ PASS  owner unlockStake() on the T5.5 instance sets withdrawTime: tx 0x5b5af07e9
 
 **Exit criteria:** T5.1–T5.8 pass with evidence; TornadoExit reputation `ok` (ACTIVE), isStaked true.
 
-## S6. CLI and automated end-to-end suite — PASSED (20:12 → 20:42 IST)
+## S6. CLI and automated end-to-end suite — PASSED (20:12 → 20:29 IST)
 
 - `yarn cli deposit` / `yarn cli withdraw --note <note|file> [--to <addr>]` / `yarn cli status --note <…>`
   (`client/src/cli.ts`). `withdraw` deletes `OPERATOR_PRIVATE_KEY` from its own environment before doing anything,
