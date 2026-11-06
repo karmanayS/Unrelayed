@@ -606,3 +606,29 @@ attempt A mined in block 5101: https://explorer.altmempool.wtf/tx/0xfc862aae470c
 TornadoExit reputation: ok (seen 22, included 18); balance 0.325074 ETH
 done.
 ```
+
+## S7. Web page — SKIPPED by owner decision (20:30 IST): "No, go to S8".
+
+## S8. Documentation and submission package — DONE (20:30 → 22:20 IST), awaiting owner confirmation
+
+- `README.md`: problem and fix; tx shape and the C0–C12 table with links to the contract lines; why the ERC-8421
+  mempool is needed with the T5.4 / T5.5 / T5.3 evidence; setup and run; deployed addresses and explorer links
+  (qualification tx); devnet findings; trade-offs and limitations; prior art; AI usage disclosure.
+- `DEMO-SCRIPT.md`: ≤ 3-minute script and shot list following `yarn demo`.
+
+Final checks:
+```
+PASS  blocks advance within 15 s: 6149 -> 6150 in 4.7 s
+PASS  block height did not drop since last check (no devnet reset): last seen 6148, now 6150
+PASS  our contract Groth16TornadoVerifier 0x01163fc3ee187d4ff4234b47ff08d0238b5c6fd1 still has code: 2826 bytes
+PASS  our contract TornadoExit 0x5bcf973fbd8f50610061821cd7a83baf818828c3 still has code: 5145 bytes
+all checks passed
+PASS  Groth16TornadoVerifier: 2826 bytes, 1252 instructions, 3 GAS opcode(s), 0 not followed by *CALL
+PASS  TornadoExit: 5145 bytes, 2663 instructions, 9 GAS opcode(s), 0 not followed by *CALL
+e2e PASSED in 331 s (results: /home/laksh/Work/projects/ethGlobal-2026/project/notes/e2e-2026-11-06T16-44-27-442Z.json)
+(e2e run 3: 77 PASS, 0 FAIL)
+```
+- Public-readiness: `git log -p --all` contains no operator key, no genesis or deployer key, and no full Tornado note
+  (`tornado-eth-0.1-1337-0x` + 124 hex: 0 matches). The `private|note` grep was inspected: only prose, identifiers
+  and truncated or redacted values. `.env`, `notes/`, `BUILD-PLAN.md` are untracked (gitignored).
+- LICENSE (MIT) present.
