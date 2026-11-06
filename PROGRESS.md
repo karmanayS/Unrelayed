@@ -189,3 +189,122 @@ frame 1 (withdraw) gasUsed 306907 stateGasUsed 281520; tx gasUsed 611869
   costs extra `isKnownRoot` iterations (≤ 29 more cold SLOADs ≈ +61k → ≈ 368k), still under the minimum.
 - `MIN_WITHDRAW_STATE_GAS = 352,000` (281,520 × 1.25 = 351,900). 281,520 = 183,600 (new recipient account) +
   97,920 (new `nullifierHashes` slot); this is the worst case because the relayer (TornadoExit) always exists.
+
+## S3. Validation-rule probes — T3.1–T3.8, T3.10 PASS; T3.9 ESCALATED (18:22 → 18:45 IST)
+
+Probes (`contracts/src/probes/Probe.sol`, `RevertingReceiver.sol`), runner `yarn --cwd client test:s3 [setup|t31…t310]`.
+Each check runs with the correct expected value (expect admit) and a wrong one (expect reject).
+- probeU (unstaked) `0xdd4418879fa6047d85dd9b029b1f2909f02d3b9f` deploy `0x7965c7818ef5a06afd4775fc2700980d72970fd725ea32e566972c91b3f44241` (gasUsed 7,310,262)
+- probeS (staked) `0xfdb27ee4a66aee4dbd3c2f27dbb41508d7cb2d2b` deploy `0x873188a3e33912bd8881752ac24183ebfc8eab710a3de024be04f3d05e7e69d4`, stake tx `0x9c4b8c99103a2333b2f9859876ccb80b2bf52abe62303919902d4fcbdc0ee9d1`
+- RevertingReceiver `0x38fb37cf6d8e9d4605f81ea0fa4f547ebf6f1c83` deploy `0xfe06e6ae98d0d59e4ce0f6e0e2a7e21be413600652e785a920240c9c2ab7f4d5`
+
+```
+== T3.1 contract sender with no signer
+PASS  [expect admit] signatures = [] (account nonce): admitted 0x75224ff4e8e44703e57788c595721de613d22ad6152c4c0f45da15fe617a57c1 mined block 4409 frames ["0x1","0x1"]
+RESULT signature form accepted: none
+== T3.2 keyed nonce on the contract sender
+PASS  [expect admit] nonceKeys=[64-bit random] seq 0: admitted 0x49d5bbc5c16632eb656d1886fd21913ab93ad44597e40fd9731fb10255ef5a2a mined block 4414 frames ["0x1","0x1"] | NONCE_MANAGER seq 0 -> 1
+PASS  [expect admit] nonceKeys=[254-bit (real nullifierHash of note A)] seq 0: admitted 0xd9bdf522732d22bc569a667cf4675d266b2313cf642b951d2ca4e7fc074f36f9 mined block 4416 frames ["0x1","0x1"] | NONCE_MANAGER seq 0 -> 1
+PASS  [expect admit] nonceKeys=[255-bit (2^255 - 1)] seq 0: admitted 0xec99d4b53872050cecf084434a99e0ec8a64870f0c5789618f22ccd6a0cfe3e4 mined block 4421 frames ["0x1","0x1"] | NONCE_MANAGER seq 0 -> 1
+PASS  [expect admit] nonceKeys=[256-bit (2^256 - 1)] seq 0: admitted 0xce1c365f21ded329e6bc40803eff95913e351e842a9e9166d63912931675a5ad mined block 4426 frames ["0x1","0x1"] | NONCE_MANAGER seq 0 -> 1
+RESULT max accepted key width: 256 bits
+PASS  never two included (1) and the same-fee duplicate was rejected
+== T3.4 staking
+PASS  getDepositInfo(probeS) = stake 12000000000000000, delay 86400, withdrawTime 0
+PASS  [expect admit] staked probe plain tx (for the admission report): admitted 0x5bde6dfae88938e3f3027abc75abcd2c9c7a00eb897ddcd618b781052ad5ff84 mined block 4434 frames ["0x1","0x1"]
+INFO  reputation entry: {"address":"0xFDb27ee4a66AeE4DbD3C2F27DbB41508D7cb2d2B","opsSeen":1,"opsIncluded":0,"status":"ok","isWhitelisted":false,"isBlacklisted":false,"stake":"0x2aa1efb94e0000","unstakeDelaySec":86400,"withdrawTime":"0x0","isStaked":true}
+PASS  explorer reputation shows probeS isStaked = true
+== T3.3 duplicate (sender, key, seq 0)   [clean re-run; see note]
+INFO  immediately after: tx1=error: Frame transaction not found tx2=error: Frame transaction not found tx3=New
+INFO  tx1: admitted
+INFO  tx2: rejected Frame transaction cannot be replaced: fee too low
+INFO  tx3: admitted
+INFO  after 20 s: included = [tx3]; status tx1=error: Frame transaction not found tx2=error: Frame transaction not found tx3=OnChain; NONCE_MANAGER seq = 1
+PASS  never two included (1) and the same-fee duplicate was rejected
+== T3.5 external reads (STORAGE-032)
+PASS  [expect reject] unstaked probe reads isKnownRoot/isSpent (correct values): rejected: unstaked payer accessed 0xf8d72424d07721ab219cdbd2852657f3301673fc slot 0xece218226a6eddd71a12d1eda2bced7bce99765024d9c7b941127a06967b04d9
+PASS  [expect admit] staked probe reads isKnownRoot/isSpent (correct values): admitted 0x2ca6d840a5fb4997696533869caa26761597bd8614aab43d76121810349bd1ec mined block 4446 frames ["0x1","0x1"]
+PASS  [expect reject] staked probe, wrong expected (isSpent = true): rejected: validation frame 0: reverted with data 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001069735370656e74206d69736d6174636800000000000000000000000000000000
+== T3.6 deployed Tornado Verifier inside VERIFY (staked probe)
+PASS  [expect reject] vVerifier(deployed Verifier, real proof, expect true): rejected: payer uses banned opcode: GAS
+RESULT rejected citing GAS -> S4 (PRE-APPROVED)
+== T3.7 introspection values (staked probe)
+PASS  [expect admit] txparam FRAME_COUNT=2 CURRENT_FRAME_INDEX=0 NONCE=0 NONCE_KEY_COUNT=1 NONCE_KEY_0=K MAX_FEE=2000000000: admitted 0xe04a7acc906068b04dae9848b36011d988b5d7bc14e2cd3134d7f79a665154a9 mined block 4449 frames ["0x1","0x1"]
+PASS  [expect reject] txparam with a wrong FRAME_COUNT (3): rejected: validation frame 0: reverted with data 0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000137478706172616d206d69736d6174636820233000000000000000000000000000
+INFO  ethrex maxCost = 388180000000000 = 194090 gas x maxFee; frame limits sum = 180000 (intrinsic part 14090)
+PASS  [expect admit] txparam MAX_COST == 388180000000000: admitted 0x96b212fd139e2a9f77b0a37ffdc76f26c87fdfab0ef210eccad16e2386dbc776 mined block 4451 frames ["0x1","0x1"]
+PASS  [expect reject] txparam MAX_COST == value + 1 (wrong): rejected: validation frame 0: reverted with data 0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000137478706172616d206d69736d6174636820233000000000000000000000000000
+PASS  [expect admit] frameparam(1): MODE=2 RESOLVED_TARGET=pool VALUE=0 FLAGS=0 EXEC_LIMIT=30000 STATE_LIMIT=0 DATA_LENGTH=4: admitted 0xae7df57ed5bc6ffb970a7800888c648a25bcdc15042178e8014184c45f2b6ba3 mined block 4454 frames ["0x1","0x1"]
+PASS  [expect reject] frameparam(1) with a wrong RESOLVED_TARGET: rejected: validation frame 0: reverted with data 0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000166672616d65706172616d206d69736d6174636820233100000000000000000000
+PASS  [expect admit] frameparam(1).VALUE == 7 (frame 1 sends 7 wei to the operator): admitted 0x949400bb14349d9ca9b0ca8a7c8936b8911dca39007ccb31dfee2f40e74ac0f2 mined block 4456 frames ["0x1","0x1"]
+PASS  [expect admit] framedatacopy(0, 36, 1) == frame 1 data: admitted 0x8cb807e294c12b550a8a8835e22f941a741c908f37ea94c43c3d26c62bd866b4 mined block 4459 frames ["0x1","0x1"]
+PASS  [expect reject] framedatacopy with a wrong expected hash: rejected: validation frame 0: reverted with data 0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000126672616d6564617461206d69736d617463680000000000000000000000000000
+== T3.8 SELFBALANCE
+PASS  [expect admit] staked: address(this).balance == 99306701999999993: admitted 0x95f366c76b1e43071fe3a737676b6b920fad62baf234af862622064e7e2d7447 mined block 4461 frames ["0x1","0x1"]
+PASS  [expect reject] staked: wrong expected balance: rejected: validation frame 0: reverted with data 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001473656c6662616c616e6365206d69736d61746368000000000000000000000000
+PASS  [expect reject] unstaked: address(this).balance == 99443400400000000 (correct value): rejected: payer uses banned opcode: SELFBALANCE
+== T3.9 EXTCODESIZE in VERIFY (staked probe)
+FAIL  [expect admit] never-used address 0x0c4129317BaeaD8f43eBcDeE6Ddda3b78bDb82c4: code.length == 0: rejected: payer accesses un-deployed contract address 0x0c4129317baead8f43ebcdee6ddda3b78bdb82c4 with opcode EXTCODESIZE
+PASS  [expect admit] contract 0x38fb37cf6d8e9d4605f81ea0fa4f547ebf6f1c83: code.length == 120: admitted 0xac3aa43ba4652721bc5ba9d0f56399fb5a35b3ce22ecc725ace837ee20a6ca98 mined block 4466 frames ["0x1","0x1"]
+PASS  [expect reject] contract: wrong expected size 0: rejected: validation frame 0: reverted with data 0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000011636f646573697a65206d69736d61746368000000000000000000000000000000
+== T3.10 msg.sender in VERIFY
+PASS  [expect admit] msg.sender == ENTRY_POINT 0x00000000000000000000000000000000000000aa: admitted 0xf1f134b73d8cc33195efd836bd46237533ddc5d421051808e4e52b4f2e2b30ce mined block 4469 frames ["0x1","0x1"]
+PASS  [expect reject] msg.sender == operator (wrong): rejected: validation frame 0: reverted with data 0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f63616c6c6572206d69736d617463680000000000000000000000000000000000
+```
+Outcomes:
+- **T3.1** contract sender with `signatures = []` is accepted → **signature form: none** (PRE-APPROVED).
+- **T3.2** keyed nonce on a contract sender works; NONCE_MANAGER seq 0 → 1 each time. Keys of 64, 254 (a real
+  nullifierHash), 255 and 256 bits all admitted and mined → **max accepted width 256 bits; `keyFor(n) = uint256(n)`**
+  (no truncation).
+- **T3.3** dedup holds: tx1 admitted; tx2 (different body, same `(sender, K', 0)`, same fee) **rejected:
+  "Frame transaction cannot be replaced: fee too low"**; tx3 (+20 % fee) **replaced** tx1 (tx1 then "not found"); only
+  tx3 included, seq = 1. Never two pending, never two included. Note: the first T3.3 run used a tx3 whose SENDER frame
+  called the Verifier with empty data (my bug); it was admitted, mined with frame 1 reverted (status `Reverted`), and
+  the keyed nonce **still advanced 0 → 1**. Re-run with a valid body is the one recorded above.
+- **T3.4** `getDepositInfo(probeS)` = 0.012 ETH, 86400, withdrawTime 0; explorer reputation `isStaked: true`, status ok.
+- **T3.5** unstaked: `unstaked payer accessed 0xf8d7…73fc slot 0xece2…04d9` (rejected); staked: admitted.
+- **T3.6** deployed Verifier in VERIFY: **"payer uses banned opcode: GAS"** → **S4 runs (PRE-APPROVED)**.
+- **T3.7** every TXPARAM (`FRAME_COUNT`, `CURRENT_FRAME_INDEX`, `NONCE`, `NONCE_KEY_COUNT`, `NONCE_KEY_0`, `MAX_FEE`,
+  `MAX_COST`), FRAMEPARAM(1) (`MODE`, `RESOLVED_TARGET`, `VALUE` (0 and 7), `FLAGS`, `EXECUTION_GAS_LIMIT`,
+  `STATE_GAS_LIMIT`, `DATA_LENGTH`) and FRAMEDATACOPY value matches. **`txparam(MAX_COST)` equals ethrex's `maxCost`**
+  (= (Σ frame gas limits + intrinsic gas) × maxFeePerGas; intrinsic 14,090 gas for that tx), so **C5 uses
+  `MAX_COST` directly; the fallback is not needed.** The client gets the value from `ethrex_simulateFrameTransaction`.
+- **T3.8** SELFBALANCE: staked admitted (and wrong value rejected); unstaked **"payer uses banned opcode: SELFBALANCE"**.
+- **T3.9** contract address: EXTCODESIZE allowed (code.length 120 matched). **Never-used address: rejected —
+  "payer accesses un-deployed contract address 0x0c41…82c4 with opcode EXTCODESIZE"** → ESCALATION 2.
+- **T3.10** `msg.sender == 0x…aa` in VERIFY.
+
+### ESCALATION 2: C6 (`recipient.code.length == 0`) cannot pass the alt-mempool rules for any recipient
+Section / test: S3, T3.9 (affects C6 in §2.3 and T5.2(l))
+
+What I expected (per BUILD-PLAN): EXTCODESIZE of a never-used address returns 0 inside VERIFY of a staked sender.
+
+What happened: rejected at `eth_sendFrameTransaction`: `payer accesses un-deployed contract address
+0x0c4129317baead8f43ebcdee6ddda3b78bdb82c4 with opcode EXTCODESIZE`. The sidecar source
+(`packages/executor/src/services/UserOpValidation/validators/frameTx.ts`, CODE_ACCESS check) rejects any
+EXT*-opcode access to an address whose code size is ≤ 2, except `tx.sender` and precompiles, **with no stake
+exemption**. So for an EOA recipient (code size 0) the access is rejected by the rule, and for a contract recipient the
+`require(code.length == 0)` itself fails: **as written, C6 rejects every withdrawal.**
+
+What I already ruled out: stake (probeS is staked and still rejected); a contract address works (120 bytes), so the
+check is about empty accounts only. EXTCODEHASH/EXTCODECOPY go through the same per-address code-size tracking.
+
+Relevant fact: a SENDER frame that reverts still consumes the keyed nonce (observed in the first T3.3 run). With C7
+(`NONCE == 0`, key = nullifierHash), each note can be attempted through TornadoExit **at most once ever**; after a
+reverted withdrawal the note is locked out of TornadoExit (its owner can still withdraw the normal way). So without
+C6 the griefing is bounded to one failed tx (≈ 620k gas paid by TornadoExit) per 0.1 ETH note, not "repeatable".
+
+Options I see (do NOT pick one):
+  A) Drop C6 from VERIFY (keep `recipient != address(0)`), rely on the C7 one-attempt-per-note bound, add a
+     client-side `eth_getCode(recipient) == 0x` check for honest users, and document the residual risk. T5.2(l) changes
+     from "rejected" to: a contract recipient whose `receive` reverts is admitted, frame 1 reverts, TornadoExit's loss
+     is ≤ one tx's gas, the note's keyed nonce is consumed, and a second attempt with the same note is rejected.
+  B) Replace C6 with a recipient-key proof: one SECP256K1 signature entry with `signer = recipient` (verified by the
+     protocol before any frame), and TornadoExit checks `sigparam(0, RESOLVED_SIGNER) == recipient`. Shows a private
+     key exists for the recipient (excludes CREATE/CREATE2 contracts) but not a 7702-delegated EOA with a reverting
+     `receive`; changes the tx shape (§2.2) and "the user signs nothing" (the fresh recipient key signs). Plus +2,800
+     verification gas. Still needs the C7 bound for the 7702 case.
+  C) A + B together.
+Impact on schedule: A ≈ 15 min (contract + test text), B/C ≈ 45 min. S4 (pre-approved, independent of this) can
+proceed meanwhile if you allow; S5 depends on the answer.
+Waiting for owner decision.

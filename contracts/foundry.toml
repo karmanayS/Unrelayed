@@ -1,0 +1,13 @@
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+libs = ["lib"]
+solc_version = "0.8.28"
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+evm_version = "cancun"
+# @forshtat/hegota-support (Solidity sources) is an npm dependency of this folder
+remappings = ["@forshtat/hegota-support/=node_modules/@forshtat/hegota-support/"]
+allow_paths = ["node_modules"]

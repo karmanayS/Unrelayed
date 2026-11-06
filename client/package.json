@@ -15,7 +15,8 @@
     "deposit": "tsx src/commands/deposit.ts",
     "prove": "tsx src/commands/prove.ts",
     "test:s2": "tsx src/tests/s2.ts",
-    "test:s2:framegas": "tsx src/tests/s2FrameGas.ts"
+    "test:s2:framegas": "tsx src/tests/s2FrameGas.ts",
+    "test:s3": "tsx src/tests/s3.ts"
   },
   "dependencies": {
     "@forshtat/hegota-support": "0.0.1",

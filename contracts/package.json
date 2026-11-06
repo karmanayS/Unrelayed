@@ -1,0 +1,9 @@
+{
+  "name": "tornado-exit-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "dependencies": {
+    "@forshtat/hegota-support": "0.0.1"
+  }
+}
