@@ -158,15 +158,6 @@ Explorer: [example withdrawal](https://explorer.altmempool.wtf/tx/0x7ee14bc425b7
 - **Tornado Cash** is used because it's the best-known privacy pool and runs here unmodified. The same design works
   for any Merkle-tree privacy pool that pays a relayer fee; Railgun is the natural next target.
 
-## Prior art
-
-- **Privacy-preserving Paymaster** (ETHGlobal Lisbon 2023): an ERC-4337 approach.
-- **Himitsu** (ETHGlobal Tokyo 2026): a custom pool and a patched mempool.
-
-Unrelayed works with the **real, unmodified Tornado pool** and the **standard ERC-8421 mempool**. It uses an
-**ERC-8421 stake** for the permissions it needs, and **nonce key = nullifier hash** so the mempool itself refuses
-duplicate spends.
-
 ## Repository
 
 ```
@@ -177,9 +168,20 @@ client/      TypeScript client: frame-transaction builder, CLI, demo, devnet tes
 
 ## AI usage
 
-The idea, architecture and design are mine. I used Claude Code (Anthropic) as an implementation assistant: it wrote
-the contracts, client, prover port and tests from my design and ran the tests on the devnet, and it drafted this
-README.
+I designed Unrelayed end to end:
+- the idea of a staked contract as the shared sender that replaces relayers;
+- the transaction shape and every check TornadoExit makes before it pays;
+- nullifier-hash nonce keys for deduplication, and the staking model;
+- the testing approach: everything against the live devnet, no mocks.
+
+I also made the design calls during the build, including:
+- switching to Tornado's v2.0 proving key;
+- the validation-safe verifier;
+- the one-attempt-per-note limit for recipients that reject ETH;
+- the gas minimums.
+
+I used Claude Code (Anthropic) to help with the implementation: writing code from my design, running the devnet tests,
+and drafting documentation.
 
 ## License
 
