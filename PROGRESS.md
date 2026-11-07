@@ -632,3 +632,16 @@ e2e PASSED in 331 s (results: /home/laksh/Work/projects/ethGlobal-2026/project/n
   (`tornado-eth-0.1-1337-0x` + 124 hex: 0 matches). The `private|note` grep was inspected: only prose, identifiers
   and truncated or redacted values. `.env`, `notes/`, `BUILD-PLAN.md` are untracked (gitignored).
 - LICENSE (MIT) present.
+
+## Post-S8: devnet inclusion flake in `yarn demo` (Sat 06:18 IST)
+
+Observed once: in step 6, attempt A `0x067da1820ff6b22500b087187812c846808bd5198e7d495c7c83c46ddde60520` was admitted by
+the sidecar but never included; the sidecar relayed it 4 times and then cancelled it ("relayed 4 times without being
+included in a block", `BundlingService.selectEntries`), and the demo stopped after its 120 s receipt wait. The note was
+afterwards still unspent with its TornadoExit slot unused, and blocks around it included other txs. Hypothesis
+"sending the same bytes to ethrex first (step 5) blocks inclusion" was tested and **disproved**: the same sequence with
+the same note was mined in 18 s (`0x5944c9a49ac1cc315938949e6725c6f61a9e3b1497696a1d85e41627bb352800`, block 10998).
+Root cause not identified (ethrex does not report why it skipped the tx). Fix in `client/src/demo.ts`: steps 3 and 6
+watch the sidecar status while waiting; on `Cancelled`, and only if the note is provably untouched (not spent, nonce
+slot 0), the withdrawal is rebuilt and resubmitted once, with a visible message. Normal path re-verified with a full
+demo run (both withdrawals mined, blocks 11174 / 11183); the resubmit path itself could not be triggered on demand.
