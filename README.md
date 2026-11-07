@@ -114,6 +114,13 @@ forge build --root contracts
 OPERATOR_PRIVATE_KEY=0x…         # only for deposits and admin; `yarn --cwd client setup:key` generates one
 PROVER_NODE=<node16>/bin/node
 
+# devnet ETH for deposits (one-time). The devnet has no faucet: one account is funded at genesis and its key is
+# published in forshtat/mempool-workshop-sidecar, deploy/devnet/genesis.values.env. Put that key in .env as
+# GENESIS_PRIVATE_KEY, then:
+yarn --cwd client setup:key      # generates OPERATOR_PRIVATE_KEY into .env (skip if you already set one)
+FUND_ETH=1 yarn --cwd client setup:fund   # one transfer from the genesis account to your operator key
+# afterwards remove GENESIS_PRIVATE_KEY from .env. 1 ETH covers ~9 deposits; `yarn demo` uses 2 per run.
+
 # use it
 yarn check:devnet                # is the devnet up, and are the contracts there?
 yarn cli deposit                 # deposit 0.1 ETH; prints and saves your note in notes/
